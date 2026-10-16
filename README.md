@@ -19,14 +19,15 @@ These are assignment requirements, not demonstrated production results.
 
 ## Repository layout
 
-- `infra/providers/aws`: Terraform starter for VPC and subnet resources; incomplete.
+- `infra/providers/aws`: Terraform network foundation (VPC, subnets, IGW, per-AZ NAT, routes); no compute or data services yet.
 - `platform/base`: Kubernetes API/worker templates, probes, PDBs, and HPA.
 - `platform/overlays/local`: kind configuration and local Kustomize overlay.
-- `pipelines/github-actions`: example validation and scanning pipeline.
-- `scripts`: manifest validation helper and first-order capacity model.
+- `.github/workflows/ci.yml`: CI that validates Terraform/manifests and gates the harness image on a Trivy scan.
+- `scripts`: manifest/network validation, image evidence generation, and a first-order capacity model.
 - `tests/harness`: synthetic HTTP API and worker process used for local demonstrations.
 - `tests/harness/k8s`: isolated Kubernetes manifests for the synthetic demonstration.
 - `docs`: architecture, decisions, cost model, roadmap, evidence checklist, and test evidence.
+- `docs/evidence`: scan/SBOM evidence; see `docs/evidence/README.md` for which files are current.
 
 ## Local validation performed
 

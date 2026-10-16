@@ -5,8 +5,8 @@
 - Architecture and decision records, top risks, cost envelope, and 90-day roadmap.
 - Kubernetes API/worker Deployment, Service, HPA, and PDB templates.
 - kind configuration and Kustomize overlays.
-- AWS Terraform starter for VPC/subnets.
-- GitHub Actions example for Terraform, manifest, and Trivy validation.
+- AWS Terraform network foundation: VPC, public/private subnets per AZ, IGW, per-AZ NAT and routes, optional EU region guard.
+- GitHub Actions workflow (`.github/workflows/ci.yml`) for Terraform fmt/validate, manifest rendering, network-input validation, harness image build, and Trivy image/config gates.
 - Capacity calculator and evidence checklist.
 - Separate synthetic API/worker-process harness and isolated Kubernetes demo manifests.
 - Local test evidence report in `docs/local-test-evidence.md`.
@@ -25,11 +25,14 @@
 - Synthetic rolling update from `synthetic-v1` to `synthetic-v2` completed.
 - Synthetic rollback to `synthetic-v1` completed.
 - After rollback, `/` returned HTTP 200 with `synthetic-v1`; two API replicas were available and registered as Service endpoints.
+  These rollout tests used the pre-remediation image (`continuity-harness:v1`, `sha256:677311ac…`).
+- GitHub Actions `validate-and-scan` passed on commit `40866de` (run #3).
+- Harness image remediated (pip removed, Alpine packages upgraded); all-severity Trivy scan and SBOM regenerated for one image ID. See `docs/evidence/README.md`.
 
 ## Not executed or not proven
 
 - No AWS account provisioning or Terraform apply.
-- AWS Terraform is incomplete and currently only establishes a VPC/subnet foundation; it is not a deployable end-to-end platform.
+- AWS Terraform is incomplete and currently only establishes the network foundation; it is not a deployable end-to-end platform. No `terraform plan` has been run.
 - No actual assignment application source/image was available.
 - The synthetic worker does not connect to Redis or process jobs.
 - No real PostgreSQL instance, startup migration, migration rollback, or schema compatibility test.

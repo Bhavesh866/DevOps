@@ -1,0 +1,6 @@
+image_ref=continuity-harness:hardened
+image_id=sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2
+generated_at=2026-10-16T14:00:04Z
+git_commit=1e862ec87fd95d6e841dc8baa7779f63e57e5568
+git_dirty=true
+trivy_version=0.71.2

@@ -6,7 +6,7 @@ The application is a black box: stateless API on port 8080 with `/healthz`, `/re
 Validate request mix, DB query profile, job duration distribution, queue delivery guarantees/idempotency, tenant isolation, RPO/RTO and whether startup migrations can be separated. Without these, capacity and cost remain hypotheses.
 
 ## Layered architecture
-**Provider layer:** AWS Terraform root/modules provision network, EKS, RDS PostgreSQL, ElastiCache Redis, ECR, KMS and Secrets Manager. Local kind validates Kubernetes resources, but cannot prove cloud networking, managed-service HA, IAM or provider SLA. Keep provider-specific outputs behind explicit interfaces.
+**Provider layer:** AWS Terraform provisions the network today (implemented, validated, never applied); EKS, RDS PostgreSQL, ElastiCache Redis, ECR, KMS and Secrets Manager are designed but not yet coded. Local kind validates Kubernetes resources, but cannot prove cloud networking, managed-service HA, IAM or provider SLA. Keep provider-specific outputs behind explicit interfaces.
 
 **Platform layer:** Kubernetes namespaces, service accounts, deployments, services, probes, autoscaling, PDBs, network policies, observability and release reconciliation. Use IRSA/workload identity on EKS. Use GitOps pull-based delivery to keep production cluster credentials out of CI.
 
