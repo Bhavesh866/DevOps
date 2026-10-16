@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: worker, namespace: continuity}
+spec:
+  replicas: 3
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector: {matchLabels: {app: worker}}
+  template:
+    metadata: {labels: {app: worker}}
+    spec:
+      terminationGracePeriodSeconds: 90
+      securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
+      containers:
+      - name: worker
+        image: REPLACE_WITH_REAL_IMAGE
+        env:
+        - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: app-secrets, key: DATABASE_URL}}}
+        - {name: REDIS_URL, valueFrom: {secretKeyRef: {name: app-secrets, key: REDIS_URL}}}
+        - {name: WORKER_DRAIN_TIMEOUT_SECONDS, value: "75"}
+        # This probe requires app support; replace with a real health contract.
+        readinessProbe: {exec: {command: ["/bin/sh", "-c", "test -f /tmp/worker-ready"]}, periodSeconds: 5, failureThreshold: 3}
+        resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: "2", memory: 1Gi}}
+        securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: worker, namespace: continuity}
+spec: {minAvailable: 2, selector: {matchLabels: {app: worker}}}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: worker, namespace: continuity}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: worker}
+  minReplicas: 3
+  maxReplicas: 200
+  metrics:
+  - type: Resource
+    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
+# Add KEDA/external metrics for queue depth and oldest-message age; CPU is fallback only.

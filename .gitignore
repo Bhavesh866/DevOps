@@ -1,0 +1,25 @@
+# Terraform generated files and state
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.tfvars
+!*.example.tfvars
+secrets/
+kubeconfig*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Test and temporary output
+.pytest_cache/
+.coverage

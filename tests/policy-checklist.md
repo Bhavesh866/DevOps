@@ -1,0 +1,11 @@
+# Manual security/reliability gates
+- [ ] Production image pinned by digest; signature verified.
+- [ ] No `latest` tags or plaintext secrets.
+- [ ] Non-root, dropped capabilities, no privilege escalation.
+- [ ] NetworkPolicies and restricted pod security are validated.
+- [ ] Secret manager/workload identity configured.
+- [ ] HPA targets measured; node autoscaling and warm capacity exist.
+- [ ] Worker queue metrics, SIGTERM drain and idempotency are tested.
+- [ ] Migrations support mixed-version rollout.
+- [ ] EU policy covers compute, database, backups, logs and snapshots.
+- [ ] Terraform plan reviewed; no public database/cache endpoints.

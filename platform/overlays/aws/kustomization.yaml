@@ -1,0 +1,5 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: continuity
+resources: [../../base]
+# Production release automation must pin the image by digest, never a mutable tag.

@@ -1,0 +1,19 @@
+name: validate-and-scan
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: terraform -chdir=infra/providers/aws fmt -check -recursive
+    - run: terraform -chdir=infra/providers/aws init -backend=false
+    - run: terraform -chdir=infra/providers/aws validate
+    - run: bash scripts/validate-manifests.sh
+    - uses: aquasecurity/setup-trivy@v0.2.3
+    - run: trivy config --severity HIGH,CRITICAL --exit-code 1 .
+# Build/push/sign/deploy omitted until OIDC roles, registry, signing and GitOps are configured.
