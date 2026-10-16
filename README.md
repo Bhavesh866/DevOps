@@ -17,6 +17,7 @@ but never planned. Full ledger: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENT
 | 15x load test | 150 → 2,250 req/s held 5 min: 800,998 requests, **0 failed**, p95 6 ms; HPA and KEDA up and back, 2,807 jobs, **0 lost** |
 | Restore test | 500k rows destroyed and restored, **checksums identical** |
 | Also | worker drain + force-kill recovery (0 lost jobs); expand/contract migration with app rollback |
+| Pipeline (GitHub Actions) | build once → scan → SBOM → sign → dev kind + k6 gate → staging → rings 0→1→2 by digest, [all green](https://github.com/Bhavesh866/DevOps/actions/runs/38926195267); ring halt seen in [run 38924053824](https://github.com/Bhavesh866/DevOps/actions/runs/38924053824). Prod rings render overlays only |
 
 ## Documents
 

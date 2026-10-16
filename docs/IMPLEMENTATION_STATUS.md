@@ -17,7 +17,7 @@ only · **[gap]** not addressed. "kind" = local cluster with the synthetic stand
 | Remote state | [code] | `infra/bootstrap` (S3 versioned, KMS, TLS-only), `backend.tf` (native lockfile) |
 | Drift detection | [code] | `.github/workflows/drift.yml` — skipped until `AWS_DRIFT_ROLE_ARN` is set; **never run** |
 | Secrets manager | [code] | Secrets Manager + External Secrets (IRSA), `platform/base/secrets.yaml`; RDS admin password managed by RDS |
-| Build once, scan, sign, promote by digest dev → staging → prod | [code] | `.github/workflows/ci.yml` — **first run happens on the next push** |
+| Build once, scan, sign, promote by digest dev → staging → prod | [run] GitHub Actions | `.github/workflows/ci.yml` — [run 38926195267](https://github.com/Bhavesh866/DevOps/actions/runs/38926195267) (commit `c7d5564`): build → Trivy → SBOM → cosign sign/attest → dev (verify, kind deploy, k6 gate) → staging tag → rings 0 → 1 → 2, all green. Production rings render digest-pinned GitOps overlays only; no production cluster exists |
 | Gates based on real metrics | [run] kind · [code] CI | Canary analysis on Prometheus (`canary-*.log`); CI k6 gate `scripts/ci/load-gate.sh` |
 | API strategy, steps, gate metrics, automatic rollback | [run] | `tests/harness/k8s/api-rollout.yaml`; `canary-under-load.log`, `canary-auto-rollback.log` |
 | Worker strategy | [run] | rolling + drain: `worker-drain.log` |
@@ -29,7 +29,7 @@ only · **[gap]** not addressed. "kind" = local cluster with the synthetic stand
 | Capacity maths and DB limits | [design] | `docs/architecture.md` §6, `scripts/capacity-model.py` |
 | One shared + dedicated stacks from one template | [code] | `tenants/*.yaml` → `scripts/tenant.py` → `infra/live/*`, `platform/tenants/*`; checked in CI |
 | New tenant < 30 min by one reviewed change | [code] / [design] | one-file PR, CI `tenant.py check`; **onboarding time not measured** |
-| Fleet rollout with halt on failure | [code] | `promote-production` matrix (`max-parallel: 1`, `fail-fast`) |
+| Fleet rollout with halt on failure | [run] GitHub Actions | `promote-production` matrix (`max-parallel: 1`, `fail-fast`). [Run 38924053824](https://github.com/Bhavesh866/DevOps/actions/runs/38924053824): ring 0 failed, rings 1 and 2 cancelled before running. The failure was unintended (the `fail_ring` null-coercion bug fixed in `c7d5564`), but the halt behaviour is real. A deliberate `workflow_dispatch` with `fail_ring=1` has not been run |
 | EU data never leaves the EU | [code] | `tenant.py` region allowlist, Terraform precondition, in-region backups, EU state bucket |
 | SLOs and alerts | [run] rules loaded on kind · [code] | `platform/observability/slo-rules.yaml` (promtool-checked, healthy in kind Prometheus); no Alertmanager routing |
 | Per-tenant visibility | [run] | `tenant`/`tier` labels on all series; SLO rules grouped by tenant |
@@ -52,7 +52,8 @@ only · **[gap]** not addressed. "kind" = local cluster with the synthetic stand
   time, RDS failover, ElastiCache failover) is unverified.
 - The real application was not available: capacity per pod, DB time, drain support and
   migration behaviour of the real app are assumptions listed in architecture §1.
-- CI supply-chain stages (push, sign, verify, promote) are written but have not run yet.
+- CI supply-chain stages run green on GitHub Actions, but "production" there means rendering
+  digest-pinned overlays per ring; nothing is synced to a real production cluster.
 - Argo CD (GitOps controller), Alertmanager, Cluster Autoscaler/Karpenter and External Secrets
   Operator are designed into the platform but not installed on kind.
 - Redis queue durability across a Redis failover is not tested; CR-001 cross-region job loss is open.

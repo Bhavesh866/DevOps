@@ -65,7 +65,7 @@ not run]**. Console steps that remain by design: creating the AWS account and se
 environment reviewers.
 
 ## 4. Delivery
-**Pipeline** (`.github/workflows/ci.yml`) **[code; first run pending push]**: validate → build once →
+**Pipeline** (`.github/workflows/ci.yml`) **[run on GitHub Actions; prod rings render overlays only]**: validate → build once →
 scan the pushed digest (HIGH/CRITICAL with fix fails) → CycloneDX SBOM → cosign keyless sign + SBOM
 attestation → **dev**: verify signature, deploy the digest to an ephemeral kind cluster, k6 gate
 (p95 < 400 ms, errors < 0.1 %) → **staging**: re-verify, tag the same digest → **production**: one ring

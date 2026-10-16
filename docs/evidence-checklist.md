@@ -17,8 +17,9 @@
 - [x] Image scan (all severities) and SBOM tied to one image ID — `docs/evidence/final/`
 - [x] Terraform fmt/validate (AWS, GCP, bootstrap), manifest render, tenant policy, promtool, Trivy config — local; CI on push
 - [x] SLO rules loaded and healthy in a running Prometheus — kind
-- [ ] CI push → sign → verify → promote by digest — written; runs on the next push
-- [ ] Ring rollout halts on failure — written; run `ci` via workflow_dispatch with `fail_ring=1` to demonstrate
+- [x] CI push → sign → verify → promote by digest — GitHub Actions run 38926195267, all 8 jobs green (prod rings render overlays; no prod cluster)
+- [x] Ring rollout halts on failure — run 38924053824: ring 0 failed, rings 1–2 cancelled (unintended failure from a since-fixed bug)
+- [ ] Deliberate halt demo — `workflow_dispatch` with `fail_ring=1` (ring 0 passes, ring 1 fails, ring 2 cancelled)
 - [ ] Any cloud deployment (AWS/GCP plan or apply)
 - [ ] Real application image: capacity, p95, drain, migrations
 - [ ] RDS PITR restore, Redis failover, regional failover game day
