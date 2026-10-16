@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.7.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.7",
-  "serialNumber": "urn:uuid:8e6beda9-575b-40e3-8482-68179a0052a9",
+  "serialNumber": "urn:uuid:63b34a04-60ad-4b87-99a2-fff639d95d9d",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-16T14:18:01+00:00",
+    "timestamp": "2026-10-16T15:26:29+00:00",
     "tools": {
       "components": [
         {
@@ -20,10 +20,10 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "bom-ref": "pkg:oci/continuity-harness@sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "type": "container",
       "name": "continuity-harness:hardened",
-      "purl": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "purl": "pkg:oci/continuity-harness@sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -39,15 +39,15 @@
         },
         {
           "name": "aquasecurity:trivy:DiffID",
+          "value": "sha256:8101e26dff5b71a439d2ede3a3d79863643e20e2c8044778f64bd60f51713613"
+        },
+        {
+          "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:9989fcae966c17ec3b94db91e9ea6331b22a5b45ff50f2363289c3ebf45c92f2"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
           "value": "sha256:a3b27dd824342acd1089d1101bdb9a36f5665e24faa57eaefd96237700eab13f"
-        },
-        {
-          "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:a84191431028579ce588f193285a193482002f99e0c989a752bc34880ea1b030"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -63,7 +63,7 @@
         },
         {
           "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301"
+          "value": "sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d"
         },
         {
           "name": "aquasecurity:trivy:Reference",
@@ -71,7 +71,7 @@
         },
         {
           "name": "aquasecurity:trivy:RepoDigest",
-          "value": "continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301"
+          "value": "continuity-harness@sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
@@ -87,14 +87,14 @@
         },
         {
           "name": "aquasecurity:trivy:Size",
-          "value": "57833472"
+          "value": "57836032"
         }
       ]
     }
   },
   "components": [
     {
-      "bom-ref": "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
+      "bom-ref": "79da9e10-6453-4052-a3df-4f79879089f6",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.24.2",
@@ -1588,7 +1588,7 @@
   ],
   "dependencies": [
     {
-      "ref": "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
+      "ref": "79da9e10-6453-4052-a3df-4f79879089f6",
       "dependsOn": [
         "pkg:apk/alpine/.python-rundeps@20261001.214140?arch=noarch&distro=3.24.2",
         "pkg:apk/alpine/alpine-baselayout@3.7.2-r1?arch=x86_64&distro=3.24.2",
@@ -1793,9 +1793,9 @@
       ]
     },
     {
-      "ref": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "ref": "pkg:oci/continuity-harness@sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "dependsOn": [
-        "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
+        "79da9e10-6453-4052-a3df-4f79879089f6",
         "pkg:pypi/redis@5.2.1"
       ]
     },
