@@ -276,7 +276,12 @@ jobs:
             echo "ring ${{ matrix.ring.ring }}: $stack -> $REF" >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Simulated ring failure (workflow_dispatch input)
-        if: github.event.inputs.fail_ring == format('{0}', matrix.ring.ring)
+        # Only on a manual run with the input set. On push, inputs are null, and
+        # GitHub coerces null == '0' to 0 == 0 (true), which failed ring 0 on every push.
+        if: >-
+          github.event_name == 'workflow_dispatch' &&
+          github.event.inputs.fail_ring != '' &&
+          github.event.inputs.fail_ring == format('{0}', matrix.ring.ring)
         run: |
           echo "Simulated failure in ring ${{ matrix.ring.ring }}: later rings must not run." | tee -a "$GITHUB_STEP_SUMMARY"
           exit 1
