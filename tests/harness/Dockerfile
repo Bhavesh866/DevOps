@@ -5,7 +5,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     ROLE=api \
     APP_VERSION=synthetic-v1
 
-RUN addgroup -S app && adduser -S -G app app
+# Pull fixed Alpine packages that are newer than the base image snapshot.
+RUN apk upgrade --no-cache && addgroup -S app && adduser -S -G app app
 WORKDIR /app
 
 COPY app.py /app/app.py
