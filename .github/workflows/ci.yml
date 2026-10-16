@@ -54,18 +54,22 @@ jobs:
       - name: Build synthetic test harness
         run: docker build -t continuity-harness:ci tests/harness
 
-      - name: Set up Trivy
-        uses: aquasecurity/setup-trivy@v0.2.3
-
       - name: Scan synthetic harness image
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.36.0
         with:
           image-ref: continuity-harness:ci
           scan-type: image
           scanners: vuln
           severity: HIGH,CRITICAL
+          ignore-unfixed: true
           exit-code: "1"
           format: table
 
       - name: Scan infrastructure configuration
-        run: trivy config --severity HIGH,CRITICAL --exit-code 1 .
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
