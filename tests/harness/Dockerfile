@@ -9,6 +9,12 @@ RUN addgroup -S app && adduser -S -G app app
 WORKDIR /app
 
 COPY app.py /app/app.py
+RUN rm -rf \
+    /usr/local/lib/python3.13/site-packages/pip \
+    /usr/local/lib/python3.13/site-packages/pip-*.dist-info \
+    /usr/local/bin/pip \
+    /usr/local/bin/pip3 \
+    /usr/local/bin/pip3.13
 
 USER app:app
 EXPOSE 8080

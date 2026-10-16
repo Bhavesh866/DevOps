@@ -1,19 +1,71 @@
+
 name: validate-and-scan
+
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
 permissions:
   contents: read
+
+concurrency:
+  group: validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
+    name: Validate infrastructure and manifests
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    - run: terraform -chdir=infra/providers/aws fmt -check -recursive
-    - run: terraform -chdir=infra/providers/aws init -backend=false
-    - run: terraform -chdir=infra/providers/aws validate
-    - run: bash scripts/validate-manifests.sh
-    - uses: aquasecurity/setup-trivy@v0.2.3
-    - run: trivy config --severity HIGH,CRITICAL --exit-code 1 .
-# Build/push/sign/deploy omitted until OIDC roles, registry, signing and GitOps are configured.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+
+      - name: Check Terraform formatting
+        run: terraform -chdir=infra/providers/aws fmt -check -recursive
+
+      - name: Initialize Terraform without backend
+        run: terraform -chdir=infra/providers/aws init -backend=false -input=false
+
+      - name: Validate Terraform configuration
+        run: terraform -chdir=infra/providers/aws validate
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Validate Kubernetes manifests
+        run: bash scripts/validate-manifests.sh
+
+      - name: Validate network inputs
+        run: python3 scripts/validate-network-inputs.py
+
+      - name: Build synthetic test harness
+        run: docker build -t continuity-harness:ci tests/harness
+
+      - name: Set up Trivy
+        uses: aquasecurity/setup-trivy@v0.2.3
+
+      - name: Scan synthetic harness image
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: continuity-harness:ci
+          scan-type: image
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          format: table
+
+      - name: Scan infrastructure configuration
+        run: trivy config --severity HIGH,CRITICAL --exit-code 1 .
