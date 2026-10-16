@@ -1,0 +1,30 @@
+== 15:19:27 A. naive one-step migration while v1 pods are still running (rolling update)
+   [OK]   migration: rename full_name -> first_name, add last_name
+   [FAIL] v1 pod write -> ERROR:  column "full_name" of relation "users" does not exist
+   [FAIL] v1 pod read -> ERROR:  column "full_name" does not exist
+   [OK]   v2 pod write
+   => v1 pods fail the moment the migration runs; rolling the app back to v1 also fails,
+      because a Kubernetes rollback does not undo the schema change.
+
+== 15:19:28 B. expand / migrate / contract
+-- phase 1 EXPAND (additive only; safe with v1 running)
+   [OK]   add nullable first_name, last_name
+   [OK]   sync trigger: writes from either version populate both shapes
+   [OK]   backfill in batches of 2,500 rows (bounded lock time)
+   rows not yet backfilled: 0
+-- mixed versions during the rolling update
+   [OK]   v1 pod write
+   [OK]   v1 pod read
+   [OK]   v2 pod write
+   [OK]   v2 pod read
+-- app ROLLBACK to v1 after the migration (schema left in expanded state)
+   [OK]   v1 write after rollback
+   [OK]   v1 read of a row written by v2
+   v2-written row as seen by v1: 'Grace Hopper'
+-- phase 3 CONTRACT (separate release, only after no v1 pods remain and the rollback window has closed)
+   [OK]   drop trigger, function and full_name
+   [OK]   v2 pod write
+   [FAIL] v1 pod write (expected to fail: v1 is no longer a valid rollback target) -> ERROR:  column "full_name" of relation "users" does not exist
+
+== 15:19:31 RESULT: expand kept v1 and v2 working together and allowed an app rollback after the migration;
+   the breaking step was deferred to a contract release. The naive migration broke v1 immediately.

@@ -12,6 +12,26 @@ variable "environment" {
   }
 }
 
+variable "tenant" {
+  type        = string
+  description = "Stack owner: \"shared\" for the shared stack, otherwise the dedicated tenant name."
+
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{1,30}$", var.tenant))
+    error_message = "Tenant must be 2-31 lowercase letters, numbers, or hyphens."
+  }
+}
+
+variable "residency" {
+  type        = string
+  description = "Data residency class. \"eu\" enforces the approved-EU-region guard on plan."
+
+  validation {
+    condition     = contains(["eu", "us", "any"], var.residency)
+    error_message = "Residency must be one of eu, us, any."
+  }
+}
+
 variable "vpc_cidr" {
   type = string
 
@@ -59,9 +79,49 @@ variable "eks_cluster_name" {
   type = string
 }
 
-variable "enable_eu_residency_guard" {
-  type    = bool
-  default = false
+variable "kubernetes_version" {
+  type    = string
+  default = "1.31"
+}
+
+variable "app_node_instance_types" {
+  type    = list(string)
+  default = ["c6i.xlarge"]
+}
+
+variable "app_nodes_min" {
+  type    = number
+  default = 3
+}
+
+variable "app_nodes_max" {
+  type    = number
+  default = 20
+}
+
+variable "db_instance_class" {
+  type    = string
+  default = "db.r6g.xlarge"
+}
+
+variable "db_allocated_storage_gb" {
+  type    = number
+  default = 200
+}
+
+variable "db_backup_retention_days" {
+  type    = number
+  default = 14
+
+  validation {
+    condition     = var.db_backup_retention_days >= 7
+    error_message = "Keep at least 7 days of PITR backups."
+  }
+}
+
+variable "redis_node_type" {
+  type    = string
+  default = "cache.r7g.large"
 }
 
 locals {
@@ -75,14 +135,17 @@ locals {
   ]
 }
 
+# EU residency guard: an EU stack cannot even plan outside approved EU regions.
+# Backups, snapshots and logs of every resource in this root stay in var.aws_region;
+# no cross-region replication is configured for EU stacks.
 resource "terraform_data" "eu_region_guard" {
-  count = var.enable_eu_residency_guard ? 1 : 0
+  count = var.residency == "eu" ? 1 : 0
   input = var.aws_region
 
   lifecycle {
     precondition {
       condition     = contains(local.approved_eu_regions, var.aws_region)
-      error_message = "Region is not in the configured approved EU region list."
+      error_message = "Residency is eu but the region is not in the approved EU region list."
     }
   }
 }

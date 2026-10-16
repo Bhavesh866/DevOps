@@ -23,7 +23,8 @@ trivy image --quiet --format cyclonedx --output "$OUT_DIR/sbom.cdx.json" "$IMAGE
   echo "image_id=$IMAGE_ID"
   echo "generated_at=$TIMESTAMP"
   echo "git_commit=$(git rev-parse HEAD)"
-  echo "git_dirty=$(test -z "$(git status --porcelain)" && echo false || echo true)"
+  # Dirty means the image's build inputs differ from the recorded commit.
+  echo "build_inputs_dirty=$(test -z "$(git status --porcelain -- tests/harness)" && echo false || echo true)"
   echo "trivy_version=$(trivy --version | head -1 | awk '{print $2}')"
 } > "$OUT_DIR/provenance.txt"
 

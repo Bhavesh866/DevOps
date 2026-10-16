@@ -18,6 +18,28 @@ scan against that one local image ID, which is recorded in `final/provenance.txt
 Result at generation time: 0 findings at any severity. This is a point-in-time result against the
 Trivy DB of that day; new CVEs will appear over time, which is why CI rescans on every build.
 
+## Platform behaviour tests (kind, synthetic harness)
+
+Environment: kind v1.37 cluster `continuity` (1 control plane + 2 workers) on one WSL2 machine
+(16 vCPU, 7 GB). Add-ons from `scripts/platform-addons.sh`. All logs reproducible with
+`bash scripts/evidence/run-all.sh`. Each log header records the git commit and image ID; the
+commit shown is the last commit *before* these changes (the scripts were uncommitted at run time).
+
+| File | Assignment item | Result | Does not show |
+|---|---|---|---|
+| `autoscale-15x.log` | 15x load test; autoscale up and back; queue-depth worker scaling without dropping jobs | k6 150 → 2,250 req/s (ramp 60 s, hold 5 min): **800,998 requests, 0 failed, 0 dropped, p95 6 ms**. API HPA 4 → 8 pods, peak served ~36 s after the ramp reached 2,250, back to 4 within ~20 s of load ending. Jobs at 20,000/h: KEDA 2 → 60 → ~38 → 2 workers; **2,807 jobs, lost=0, duplicates=0**. | Real app capacity (harness does ~5 ms of work, so 15x traffic needed only 2x pods); node provisioning (nodes pre-existed); job durations scaled 10x down (3–9 s). |
+| `autoscale-15x-attempt1-generator-limited.log` | (history) | First attempt: k6 opened a new TCP connection per request and exhausted its own ports — 298,521 dropped iterations, peak ~1,800 req/s, 0 server errors. Fixed by connection reuse + server-side `Connection: close` every 100 requests (rebalances after scale-out). Kept for transparency. | — |
+| `canary-under-load.log` | Deploy under load with no errors | Release v1 → v3 at constant 300 req/s through canary steps 25 % → 50 % → 100 %: **90,001 requests, 0 failed**; analysis 10/10 successful on both metrics (canary 5xx ratio, canary p95). | Exact traffic percentages (no traffic router on kind: weight = replica ratio). |
+| `canary-auto-rollback.log` | Automatic rollback of a bad release | Release with 30 % failing requests at 300 req/s: canary 5xx ratio measured 0.27–0.28 vs. limit 0.01 → **rollout aborted automatically 42 s after release**, stable served 100 % again ~15 s later. Blast radius over the 4-min window: 1,104 of 72,001 requests failed (1.5 %), all from the canary before abort. k6 thresholds fail in this run by design. | Faster detection or smaller first step: on EKS a traffic router allows a 5 % first step. |
+| `restore-test.log` | Restore test | 500,000-row database: `pg_dump` → pod (and data) destroyed → 0 tables → `pg_restore` → **row counts and content MD5 identical**, smoke query passes. Backup 1 s, restore 1 s. | RDS PITR/snapshot restore (managed-service path is in `docs/runbooks.md`, not run); restore time at production data size. |
+| `migration-expand-contract.log` | Safe migrations, rollback after a migration | Naive rename breaks v1 immediately. Expand (additive columns + sync trigger + batched backfill) keeps v1 and v2 working together; **v1 still works after an app rollback** post-migration; contract drops `full_name` only in a later release. | The real app's migrations (SQL issued per app version is simulated with psql). |
+| `worker-drain.log` | Worker draining | A: rolling update with 4 jobs in flight — every terminating worker finished its job, then exited; `lost=0`, `duplicates=0`. B: worker force-deleted mid-job — its job was requeued after heartbeat expiry and completed; `requeued_orphans=1`, `lost=0`. | Real job semantics or idempotency of the real worker; Redis failure (Redis here is a single ephemeral pod). |
+
+**Defect found and fixed during these runs:** the first canary attempt's error-rate query returned an
+empty vector when there were zero 5xx responses, every measurement errored, and Argo aborted the
+release after 5 consecutive errors. The gate failed closed (safe), but would have blocked every good
+release. Fixed with `or vector(0)` in `tests/harness/k8s/api-rollout.yaml`.
+
 ## Historical (pre-remediation) — do not cite as current
 
 | File | Image ID | Scanned (UTC) | Findings | Note |

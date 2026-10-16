@@ -6,3 +6,20 @@ images:
 - name: REPLACE_WITH_REAL_IMAGE
   newName: continuity-service
   newTag: local
+# kind has no External Secrets Operator or cloud secret store: replace the
+# ExternalSecret with a local Secret holding in-cluster, non-sensitive URLs.
+patches:
+- target: {kind: ExternalSecret, name: app-secrets}
+  patch: |
+    $patch: delete
+    apiVersion: external-secrets.io/v1beta1
+    kind: ExternalSecret
+    metadata: {name: app-secrets}
+secretGenerator:
+- name: app-secrets
+  options: {disableNameSuffixHash: true}
+  literals:
+  - DATABASE_URL=postgres://app@postgres:5432/app
+  - REDIS_URL=redis://redis:6379/0
+  - REDIS_ADDRESS=redis:6379
+  - REDIS_PASSWORD=

@@ -1,71 +1,73 @@
-
-name: validate-and-scan
+# Build once -> scan -> SBOM -> sign -> verify -> deploy the digest to an
+# ephemeral dev cluster and gate on measured latency/errors -> promote the SAME
+# digest to staging -> production rings (shared first, halt on failure).
+# Pull requests run validation and an unpublished build/scan only.
+name: ci
 
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - master
+    branches: [master, main]
   workflow_dispatch:
+    inputs:
+      fail_ring:
+        description: "Simulate a failure in this production ring (demonstrates halt-on-failure)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: validation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  # Never cancel a half-finished promotion on the main branch.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
-    name: Validate infrastructure and manifests
+    name: Validate IaC, manifests, tenants and rules
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.10.5"
           terraform_wrapper: false
 
-      - name: Check Terraform formatting
-        run: terraform -chdir=infra/providers/aws fmt -check -recursive
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive infra
 
-      - name: Initialize Terraform without backend
-        run: terraform -chdir=infra/providers/aws init -backend=false -input=false
+      - name: Terraform validate (provider roots and state bootstrap)
+        run: |
+          for root in infra/providers/aws infra/providers/gcp infra/bootstrap; do
+            terraform -chdir=$root init -backend=false -input=false
+            terraform -chdir=$root validate
+          done
 
-      - name: Validate Terraform configuration
-        run: terraform -chdir=infra/providers/aws validate
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+      - uses: actions/setup-python@v5
         with:
-          version: "latest"
+          python-version: "3.12"
 
-      - name: Validate Kubernetes manifests
+      - name: Tenant definitions and rendered stacks
+        run: |
+          python3 -m pip install --quiet pyyaml==6.0.2
+          python3 scripts/tenant.py check
+          for f in infra/live/*/terraform.tfvars; do python3 scripts/validate-network-inputs.py "$f"; done
+
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.31.4"
+
+      - name: Render and check Kubernetes manifests
         run: bash scripts/validate-manifests.sh
 
-      - name: Validate network inputs
-        run: python3 scripts/validate-network-inputs.py
+      - name: Prometheus config and SLO rules
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/platform/observability:/etc/prometheus" \
+            prom/prometheus:v2.55.1 check config /etc/prometheus/prometheus.yml
 
-      - name: Build synthetic test harness
-        run: docker build -t continuity-harness:ci tests/harness
-
-      - name: Scan synthetic harness image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: continuity-harness:ci
-          scan-type: image
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-          format: table
-
-      - name: Scan infrastructure configuration
+      - name: Trivy configuration scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: config
@@ -73,3 +75,212 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           format: table
+          # Example manifests shipped inside downloaded third-party modules are not deployed.
+          skip-dirs: "**/.terraform/modules/*/examples"
+          # Accepted findings, each with a reason: .trivyignore
+          trivyignores: .trivyignore
+
+  build:
+    name: Build once, scan, SBOM, sign
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # push to GHCR
+      id-token: write   # keyless cosign signing via GitHub OIDC
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    env:
+      PUBLISH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Image name (GHCR requires lowercase)
+        id: name
+        run: echo "image=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/continuity-harness" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: env.PUBLISH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (and push on main)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: tests/harness
+          push: ${{ env.PUBLISH == 'true' }}
+          load: ${{ env.PUBLISH != 'true' }}
+          tags: ${{ steps.name.outputs.image }}:sha-${{ github.sha }}
+          labels: org.opencontainers.image.revision=${{ github.sha }}
+
+      - name: Scan the exact pushed digest (HIGH/CRITICAL with a fix fails)
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ${{ env.PUBLISH == 'true' && format('{0}@{1}', steps.name.outputs.image, steps.build.outputs.digest) || format('{0}:sha-{1}', steps.name.outputs.image, github.sha) }}
+          scan-type: image
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
+      - name: SBOM (CycloneDX)
+        if: env.PUBLISH == 'true'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+          artifact-name: sbom.cdx.json
+
+      - uses: sigstore/cosign-installer@v3
+        if: env.PUBLISH == 'true'
+
+      # Only an image that passed the scan gets signed; every deploy step
+      # verifies the signature, so an unsigned digest can never be promoted.
+      - name: Sign digest and attach SBOM attestation
+        if: env.PUBLISH == 'true'
+        env:
+          REF: ${{ steps.name.outputs.image }}@${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "$REF"
+          cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "$REF"
+          echo "### Built \`$REF\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-dev:
+    name: Dev — deploy digest to ephemeral kind, metric gate
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REF: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify signature and SBOM attestation
+        run: bash scripts/ci/verify-image.sh "$REF"
+
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: continuity
+          config: platform/overlays/local/kind-config.yaml
+
+      - name: Platform add-ons
+        run: TARGET=kind bash scripts/platform-addons.sh
+
+      - name: Deploy the signed digest
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/ci/deploy-harness.sh "$REF"
+
+      - name: Metric gate — 60s at 150 req/s, p95 < 400 ms, errors < 0.1%
+        run: bash scripts/ci/load-gate.sh
+
+  promote-staging:
+    name: Staging — promote the same digest
+    needs: [build, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.build.outputs.image }}
+      DIGEST: ${{ needs.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify, then point the staging tag at the digest (no rebuild)
+        run: |
+          bash scripts/ci/verify-image.sh "$IMAGE@$DIGEST"
+          docker buildx imagetools create --tag "$IMAGE:staging" "$IMAGE@$DIGEST"
+          docker buildx imagetools inspect "$IMAGE:staging" --format '{{json .Manifest.Digest}}'
+
+  plan-rings:
+    name: Production ring plan
+    needs: promote-staging
+    runs-on: ubuntu-latest
+    outputs:
+      rings: ${{ steps.rings.outputs.rings }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: rings
+        run: |
+          python3 -m pip install --quiet pyyaml==6.0.2
+          echo "rings=$(python3 scripts/tenant.py rings)" >> "$GITHUB_OUTPUT"
+
+  promote-production:
+    name: Production ring ${{ matrix.ring.ring }} — ${{ join(matrix.ring.stacks, ', ') }}
+    needs: [build, plan-rings]
+    runs-on: ubuntu-latest
+    # Required reviewers are configured on this environment in repository settings.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      # One ring at a time; a failed ring cancels every later ring.
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        ring: ${{ fromJSON(needs.plan-rings.outputs.rings) }}
+    env:
+      REF: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: sigstore/cosign-installer@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify signature
+        run: bash scripts/ci/verify-image.sh "$REF"
+      - name: Render GitOps change for this ring (digest-pinned overlays)
+        run: |
+          mkdir -p gitops
+          for stack in ${{ join(matrix.ring.stacks, ' ') }}; do
+            (cd platform/tenants/$stack && kustomize edit set image "REPLACE_WITH_REAL_IMAGE=$REF")
+            kubectl kustomize platform/tenants/$stack > gitops/$stack.yaml
+            grep -q "image: $REF" gitops/$stack.yaml
+            echo "ring ${{ matrix.ring.ring }}: $stack -> $REF" >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Simulated ring failure (workflow_dispatch input)
+        if: github.event.inputs.fail_ring == format('{0}', matrix.ring.ring)
+        run: |
+          echo "Simulated failure in ring ${{ matrix.ring.ring }}: later rings must not run." | tee -a "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gitops-ring-${{ matrix.ring.ring }}
+          path: gitops/

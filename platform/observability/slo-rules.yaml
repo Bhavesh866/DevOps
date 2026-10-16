@@ -1,0 +1,80 @@
+# SLO recording and alerting rules (Prometheus rule-file format).
+# Availability SLI: share of "/" requests not answered 5xx, per tenant.
+# Targets: tier="shared" 99.9% (budget 0.001), tier="dedicated" 99.95% (budget 0.0005).
+# Burn-rate alerts follow the multi-window pattern from the Google SRE workbook:
+#   page:   1h and 5m windows both burning > 14.4x  (2% of a 30-day budget in 1h)
+#   ticket: 6h and 30m windows both burning > 6x    (5% of a 30-day budget in 6h)
+groups:
+  - name: slo-recording
+    rules:
+      - record: tenant:slo_errors:ratio_rate5m
+        expr: |
+          sum by (tenant, tier) (rate(http_requests_total{path="/",code=~"5.."}[5m]))
+          / sum by (tenant, tier) (rate(http_requests_total{path="/"}[5m]))
+      - record: tenant:slo_errors:ratio_rate30m
+        expr: |
+          sum by (tenant, tier) (rate(http_requests_total{path="/",code=~"5.."}[30m]))
+          / sum by (tenant, tier) (rate(http_requests_total{path="/"}[30m]))
+      - record: tenant:slo_errors:ratio_rate1h
+        expr: |
+          sum by (tenant, tier) (rate(http_requests_total{path="/",code=~"5.."}[1h]))
+          / sum by (tenant, tier) (rate(http_requests_total{path="/"}[1h]))
+      - record: tenant:slo_errors:ratio_rate6h
+        expr: |
+          sum by (tenant, tier) (rate(http_requests_total{path="/",code=~"5.."}[6h]))
+          / sum by (tenant, tier) (rate(http_requests_total{path="/"}[6h]))
+      - record: tenant:latency_p95:seconds_5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (tenant, tier, le) (rate(http_request_duration_seconds_bucket[5m])))
+
+  - name: slo-alerts
+    rules:
+      - alert: ErrorBudgetFastBurn
+        expr: |
+          (
+            tenant:slo_errors:ratio_rate1h{tier="shared"} > 14.4 * 0.001
+            and tenant:slo_errors:ratio_rate5m{tier="shared"} > 14.4 * 0.001
+          ) or (
+            tenant:slo_errors:ratio_rate1h{tier="dedicated"} > 14.4 * 0.0005
+            and tenant:slo_errors:ratio_rate5m{tier="dedicated"} > 14.4 * 0.0005
+          )
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $labels.tenant }} is burning its error budget >14.4x"
+          runbook: docs/runbooks.md#api-error-budget-burn
+      - alert: ErrorBudgetSlowBurn
+        expr: |
+          (
+            tenant:slo_errors:ratio_rate6h{tier="shared"} > 6 * 0.001
+            and tenant:slo_errors:ratio_rate30m{tier="shared"} > 6 * 0.001
+          ) or (
+            tenant:slo_errors:ratio_rate6h{tier="dedicated"} > 6 * 0.0005
+            and tenant:slo_errors:ratio_rate30m{tier="dedicated"} > 6 * 0.0005
+          )
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "{{ $labels.tenant }} is burning its error budget >6x"
+          runbook: docs/runbooks.md#api-error-budget-burn
+      - alert: ApiLatencyP95High
+        expr: tenant:latency_p95:seconds_5m > 0.4
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $labels.tenant }} p95 latency above 400 ms for 10m"
+          runbook: docs/runbooks.md#api-latency
+      - alert: JobBacklogAging
+        expr: max(jobs_oldest_pending_age_seconds) > 120
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "Oldest queued job has waited more than 2 minutes"
+          runbook: docs/runbooks.md#job-backlog
+      - alert: JobsDuplicated
+        expr: increase(jobs_duplicates_total[15m]) > 0
+        labels: {severity: ticket}
+        annotations:
+          summary: "Jobs were executed more than once (at-least-once delivery)"
+          runbook: docs/runbooks.md#job-backlog

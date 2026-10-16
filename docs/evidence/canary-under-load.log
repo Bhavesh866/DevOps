@@ -1,0 +1,40 @@
+== 14:58:51 setup: commit d2754e8, image sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d
+   current release: synthetic-v1; new release: synthetic-v3
+   load: constant 300 req/s (2x baseline) for the whole rollout
+k6 job k6-canary-good started (profile=steady)
+-- 14:59:22 releasing synthetic-v3
+time     phase        step    pods analysis          rps  err_rps   p95_ms versions
+14:59:23 Progressing     0       4 Error             300    0.000    9.750 synthetic-v1=4
+14:59:35 Paused          1       4 Running           309    0.000    9.750 synthetic-v1=4,synthetic-v3=1
+14:59:46 Paused          1       4 Running           300    0.000    9.750 synthetic-v1=3,synthetic-v3=1
+14:59:58 Paused          1       4 Running           300    0.000    9.750 synthetic-v1=3,synthetic-v3=1
+15:00:09 Paused          1       4 Running           300    0.000    9.750 synthetic-v1=3,synthetic-v3=1
+15:00:21 Paused          1       4 Running           300    0.000    9.750 synthetic-v1=3,synthetic-v3=1
+15:00:32 Paused          3       4 Running           300    0.000    9.750 synthetic-v1=3,synthetic-v3=2
+15:00:44 Paused          3       4 Running           304    0.000    9.750 synthetic-v1=3,synthetic-v3=2
+15:00:56 Paused          3       4 Running           303    0.000    9.750 synthetic-v1=2,synthetic-v3=2
+15:01:07 Paused          3       4 Running           301    0.000    9.750 synthetic-v1=2,synthetic-v3=2
+15:01:19 Paused          3       4 Running           300    0.000    9.750 synthetic-v1=2,synthetic-v3=2
+15:01:30 Progressing     4       4 Running           296    0.000    9.750 synthetic-v1=2,synthetic-v3=2
+15:01:42 Paused          5       4 Running           294    0.000    9.751 synthetic-v1=2,synthetic-v3=4
+15:01:53 Paused          5       4 Running           312    0.000    9.751 synthetic-v3=4
+15:02:05 Healthy         6       4 Successful        290    0.000    9.750 synthetic-v3=4
+15:02:16 Healthy         6       4 Successful        300    0.000    9.750 synthetic-v3=4
+15:02:28 Healthy         6       4 Successful        300    0.000    9.750 synthetic-v3=4
+15:02:39 Healthy         6       4 Successful        299    0.000    9.750 synthetic-v3=4
+15:02:51 Healthy         6       4 Successful        301    0.000    9.751 synthetic-v3=4
+15:03:02 Healthy         6       4 Successful        300    0.000    9.751 synthetic-v3=4
+15:03:14 Healthy         6       4 Successful        300    0.000    9.750 synthetic-v3=4
+15:03:25 Healthy         6       4 Successful        302    0.000    9.750 synthetic-v3=4
+15:03:37 Healthy         6       4 Successful        298    0.000    9.750 synthetic-v3=4
+15:03:49 Healthy         6       4 Successful        300    0.000    9.750 synthetic-v3=4
+15:04:00 Healthy         6       4 Successful        222    0.000    9.750 synthetic-v3=4
+
+== 15:04:01 canary analysis
+   analysisrun synthetic-api-69c84d8474-4: phase=Successful Run Terminated
+   - canary-p95-latency: phase=Successful successful=10 failed=0 last values=['[0.00975]', '[0.00975]', '[0.00975]', '[0.009750000000000002]', '[0.009751020658705194]', '[0.00975]']
+   - canary-error-rate: phase=Successful successful=10 failed=0 last values=['[0]', '[0]', '[0]', '[0]', '[0]', '[0]']
+
+== 15:04:01 k6 summary (failed_requests must be 0)
+{"profile":"steady","requests":90001,"avg_rps":300,"failed_requests":0,"failed_rate":0,"p50_ms":5.6,"p95_ms":5.9,"p99_ms":6,"max_ms":12.1,"dropped_iterations":0,"thresholds_passed":true}
+== RESULT: PASS — rollout Healthy on synthetic-v3, 0 failed requests during the rollout

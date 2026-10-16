@@ -1,0 +1,150 @@
+# API release strategy: canary with metric analysis (Argo Rollouts).
+# No traffic router on kind, so weight is approximated by replica ratio
+# (setWeight 25 with 4 replicas = 1 canary pod). On EKS the same Rollout would
+# use an ALB/mesh traffic router for exact percentages.
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: synthetic-api
+  namespace: continuity-demo
+spec:
+  # Replica count is owned by the HPA in autoscaling.yaml.
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: synthetic-api
+  strategy:
+    canary:
+      maxUnavailable: 0
+      maxSurge: 1
+      analysis:
+        # Runs in the background from the first step; any failed measurement
+        # aborts the rollout and scales the canary away.
+        templates:
+          - templateName: api-canary-health
+        startingStep: 1
+        args:
+          - name: canary-hash
+            valueFrom:
+              podTemplateHashValue: Latest
+      steps:
+        - setWeight: 25
+        - pause: {duration: 60s}
+        - setWeight: 50
+        - pause: {duration: 60s}
+        - setWeight: 100
+        - pause: {duration: 30s}
+  template:
+    metadata:
+      labels:
+        app: synthetic-api
+        tenant: shared
+        tier: shared
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      # preStop (5s) + in-app drain (DRAIN_SECONDS=20) must fit inside this.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: continuity-harness:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: ROLE
+              value: api
+            - name: APP_VERSION
+              value: synthetic-v1
+            - name: DRAIN_SECONDS
+              value: "20"
+            - name: FAIL_RATE
+              value: "0"
+          lifecycle:
+            preStop:
+              # Keep serving while kube-proxy removes this endpoint; SIGTERM
+              # arrives only after this sleep.
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 48Mi
+            limits:
+              cpu: "1"
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 15
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 3
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: api-canary-health
+  namespace: continuity-demo
+spec:
+  args:
+    - name: canary-hash
+  metrics:
+    - name: canary-error-rate
+      initialDelay: 20s
+      interval: 15s
+      failureLimit: 1
+      # 1% of canary requests answered 5xx aborts the release.
+      successCondition: result[0] <= 0.01
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          # "or vector(0)": with no 5xx at all the numerator is an empty vector,
+          # not 0, and every measurement would error (the gate then fails closed).
+          query: |
+            (sum(rate(http_requests_total{namespace="continuity-demo",path="/",code=~"5..",rollouts_pod_template_hash="{{args.canary-hash}}"}[30s])) or vector(0))
+            /
+            sum(rate(http_requests_total{namespace="continuity-demo",path="/",rollouts_pod_template_hash="{{args.canary-hash}}"}[30s]))
+    - name: canary-p95-latency
+      initialDelay: 20s
+      interval: 15s
+      failureLimit: 2
+      successCondition: result[0] < 0.4
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring.svc:9090
+          query: |
+            histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="continuity-demo",rollouts_pod_template_hash="{{args.canary-hash}}"}[30s])))
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: synthetic-api
+  namespace: continuity-demo
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: synthetic-api

@@ -1,0 +1,15 @@
+# The shared multi-tenant stack. Ring 0: every release lands here first.
+name: shared-eu
+tier: shared
+cloud: aws
+region: eu-central-1
+residency: eu
+ring: 0
+vpc_cidr: 10.40.0.0/16
+sizing:
+  app_nodes_min: 4
+  app_nodes_max: 30
+  api_min: 6
+  api_max: 60
+  workers_max: 400
+  db_instance_class: db.r6g.2xlarge

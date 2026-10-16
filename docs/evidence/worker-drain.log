@@ -1,0 +1,50 @@
+== 14:14:40 setup: commit d2754e8, image sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301
+deployment.apps/synthetic-worker scaled
+deployment "synthetic-worker" successfully rolled out
+
+== 14:14:41 scenario A: rolling update while 8 x 45s jobs are in flight
+-- 14:14:51 in flight before rollout:
+   jobs:processing:synthetic-worker-6dd556b6f7-kdr8q-44df31 1
+   jobs:processing:synthetic-worker-6dd556b6f7-prbzq-03b024 1
+   jobs:processing:synthetic-worker-6dd556b6f7-jt7rl-bd5591 1
+   jobs:processing:synthetic-worker-6dd556b6f7-c6q6k-8eec11 1
+deployment.apps/synthetic-worker env updated
+deployment "synthetic-worker" successfully rolled out
+-- 14:15:47 logs of the terminated (old) workers:
+   [pod/synthetic-worker-6dd556b6f7-jt7rl/worker] finished in-flight job 6c6a7f514b654b56931d6c37e62f68c4 during drain
+   [pod/synthetic-worker-6dd556b6f7-jt7rl/worker] worker synthetic-worker-6dd556b6f7-jt7rl-bd5591 exited cleanly
+   [pod/synthetic-worker-6dd556b6f7-prbzq/worker] finished in-flight job de6c26a01fa74c418992aa5d359b6dac during drain
+   [pod/synthetic-worker-6dd556b6f7-kdr8q/worker] finished in-flight job 59a565313d6047f09d43342a2d9a4d8d during drain
+   [pod/synthetic-worker-6dd556b6f7-c6q6k/worker] finished in-flight job fe07189ed60743d481affcafc443369b during drain
+   [pod/synthetic-worker-6dd556b6f7-c6q6k/worker] worker synthetic-worker-6dd556b6f7-c6q6k-8eec11 exited cleanly
+   [pod/synthetic-worker-6dd556b6f7-prbzq/worker] worker synthetic-worker-6dd556b6f7-prbzq-03b024 exited cleanly
+   [pod/synthetic-worker-6dd556b6f7-kdr8q/worker] worker synthetic-worker-6dd556b6f7-kdr8q-44df31 exited cleanly
+-- 14:15:47 audit:
+time=2026-10-16T14:15:48Z
+enqueued=8
+done_unique=8
+completions=8
+duplicates=0
+pending=0
+processing=0
+released_on_drain=0
+requeued_orphans=0
+lost=0
+
+== 14:15:48 scenario B: force-delete a worker mid-job (grace period 0, drain cut short)
+-- 14:15:59 force-deleting synthetic-worker-6d954bb7fb-8njrz
+Warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
+pod "synthetic-worker-6d954bb7fb-8njrz" force deleted from continuity-demo namespace
+-- 14:15:59 orphaned list is requeued after the 30s heartbeat TTL expires
+time=2026-10-16T14:17:25Z
+enqueued=8
+done_unique=8
+completions=8
+duplicates=0
+pending=0
+processing=0
+released_on_drain=0
+requeued_orphans=1
+lost=0
+
+== 14:17:25 both scenarios: lost=0

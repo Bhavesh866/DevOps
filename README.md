@@ -1,71 +1,60 @@
-# ImmverseAI Senior DevOps Assignment
+# Continuity platform — cloud-agnostic, zero-downtime deployment
 
-**Status: partially implemented; see `docs/IMPLEMENTATION_STATUS.md`.**
+ImmverseAI DevOps assessment. The application is a black box that was not supplied, so a
+synthetic stand-in (`tests/harness`) implements its contract (API on :8080 with
+`/healthz` `/readyz` `/metrics`, Redis-queue worker with jobs up to 60 s) to exercise the platform.
 
-AWS is the intended cloud target, and kind is the local Kubernetes validation target. The assignment's actual API/worker source and image were not available in the working directory. A separate synthetic harness was created for local Kubernetes deployment, endpoint, rolling-update, and rollback demonstrations. It is not the actual assignment application.
+**What is real:** every evidence log was produced on a local kind cluster (the second target).
+**What is not:** nothing was applied to a cloud account. AWS and GCP Terraform is validated
+but never planned. Full ledger: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md).
 
-## Assignment targets
+## Evidence (kind, synthetic app) — [`docs/evidence/README.md`](docs/evidence/README.md)
 
-- API on port 8080 with `/healthz`, `/readyz`, and `/metrics`.
-- Stateless worker consumes Redis jobs of up to 60 seconds.
-- PostgreSQL migrations may be non-backward-compatible.
-- 150 requests/second baseline; 2,250 requests/second peak.
-- 20,000 jobs/hour; p95 latency below 400 ms.
-- Availability targets: 99.9% shared and 99.95% dedicated.
-- EU tenant data must remain in the EU.
-- Budget envelope: $9,000/month steady state and $16,000/month peak.
+| Required evidence | Result |
+|---|---|
+| Deploy under load, no errors | canary 25 → 50 → 100 % at 300 req/s: 90,001 requests, **0 failed** |
+| Automatic rollback of a bad release | 30 %-failing release **aborted by metric analysis in 42 s** |
+| 15x load test | 150 → 2,250 req/s held 5 min: 800,998 requests, **0 failed**, p95 6 ms; HPA and KEDA up and back, 2,807 jobs, **0 lost** |
+| Restore test | 500k rows destroyed and restored, **checksums identical** |
+| Also | worker drain + force-kill recovery (0 lost jobs); expand/contract migration with app rollback |
 
-These are assignment requirements, not demonstrated production results.
+## Documents
 
-## Repository layout
+- [`docs/architecture.md`](docs/architecture.md) — architecture (diagram, flows, scaling maths, 9 decisions, top 5 risks)
+- [`docs/change-request-us-west.md`](docs/change-request-us-west.md) — CR-001 addendum: dedicated tenant on GCP, US-West + US-East failover
+- [`docs/runbooks.md`](docs/runbooks.md) · [`docs/cost-model.md`](docs/cost-model.md) · [`docs/roadmap-90-days.md`](docs/roadmap-90-days.md)
 
-- `infra/providers/aws`: Terraform network foundation (VPC, subnets, IGW, per-AZ NAT, routes); no compute or data services yet.
-- `platform/base`: Kubernetes API/worker templates, probes, PDBs, and HPA.
-- `platform/overlays/local`: kind configuration and local Kustomize overlay.
-- `.github/workflows/ci.yml`: CI that validates Terraform/manifests and gates the harness image on a Trivy scan.
-- `scripts`: manifest/network validation, image evidence generation, and a first-order capacity model.
-- `tests/harness`: synthetic HTTP API and worker process used for local demonstrations.
-- `tests/harness/k8s`: isolated Kubernetes manifests for the synthetic demonstration.
-- `docs`: architecture, decisions, cost model, roadmap, evidence checklist, and test evidence.
-- `docs/evidence`: scan/SBOM evidence; see `docs/evidence/README.md` for which files are current.
+## Layout
 
-## Local validation performed
+| Path | Layer | Contents |
+|---|---|---|
+| `infra/bootstrap` | provider | state bucket (versioned, KMS) and GitHub OIDC roles |
+| `infra/providers/aws` | provider | VPC, EKS, RDS PostgreSQL, ElastiCache, KMS, Secrets Manager, ECR |
+| `infra/providers/gcp` | provider | CR-001 skeleton: GKE ×2 regions, Cloud SQL + cross-region replica, Memorystore |
+| `infra/live/<stack>` | provider | rendered per-stack tfvars and state backend (generated) |
+| `tenants/*.yaml` | fleet | one file per stack: the single reviewed change for onboarding |
+| `platform/base`, `platform/overlays`, `platform/tenants` | app | API/worker manifests, per-target and per-tenant overlays (generated) |
+| `platform/observability` | platform | Prometheus config and SLO/burn-rate rules |
+| `tests/harness` | test | stand-in app, kind manifests (Argo Rollouts canary, HPA, KEDA, Redis, Postgres) |
+| `tests/load` | test | k6 profiles |
+| `scripts/` | all | add-ons, tenant tool, evidence scripts, CI helpers, validators |
+| `.github/workflows` | pipeline | `ci.yml` (build once → sign → promote by digest, ring rollout), `drift.yml` |
 
-Environment: WSL2, Docker, kind, and Kubernetes.
+## Reproduce
 
-Observed results:
-- A three-node kind cluster was created; all nodes reported `Ready`.
-- Terraform formatting, initialization without backend, and validation succeeded for the current Terraform starter. No AWS resources were provisioned.
-- The original local Kustomize template rendered and passed a client-side dry run.
-- The synthetic API was deployed with two replicas and the synthetic worker process with one replica.
-- Synthetic `/healthz`, `/readyz`, `/metrics`, and `/` returned HTTP 200.
-- A rolling update from `synthetic-v1` to `synthetic-v2` completed.
-- A rollback to `synthetic-v1` completed; the version endpoint returned HTTP 200 and two API replicas were available.
+```bash
+# Prerequisites: docker, kind, kubectl, python3 (+ pyyaml), terraform >= 1.10
+bash scripts/evidence/run-all.sh                   # kind cluster, add-ons, all evidence (~35 min)
 
-These tests validate local Kubernetes mechanics and the synthetic harness only. They do not validate the actual application, real Redis job processing, PostgreSQL migrations, performance, or production availability.
+python3 scripts/tenant.py check                    # tenant policy + rendered stacks up to date
+bash scripts/validate-manifests.sh                 # render every overlay
+terraform -chdir=infra/providers/aws init -backend=false && terraform -chdir=infra/providers/aws validate
+bash scripts/generate-image-evidence.sh            # image scan + SBOM for one image ID
+```
 
-For detailed evidence and limitations, see `docs/local-test-evidence.md` and `docs/IMPLEMENTATION_STATUS.md`.
+## Onboarding a tenant
 
-## Original template workflow
-
-The manifests under `platform/` are templates, not a production-ready deployment. Before using them with the real application:
-
-1. Obtain the actual application image and contract.
-2. Replace image placeholders and confirm supported probes, environment variables, and shutdown behavior.
-3. Provision and configure PostgreSQL and Redis, including credentials and persistence/recovery settings.
-4. Replace the template secret setup with the intended secret-management integration.
-5. Validate the rendered manifests and run application-specific tests before deployment.
-
-Do not apply the original templates expecting a complete application stack: the database, queue, actual image, and full cloud infrastructure are not provided.
-
-## Intended design
-
-Build once, scan, generate an SBOM, sign, publish, and promote the same image digest through dev/staging/production. Use a reviewed GitOps change for production. An API canary can progress from 5% to 25%, 50%, and 100%, gated by p95 latency, 5xx rate, readiness, and saturation. Worker rollout requires application-supported SIGTERM/draining and compatible message formats.
-
-Roll out shared tenants first, then dedicated tenants in rings, then regions. EU tenant compute, data, backups, logs, and snapshots must remain in approved EU regions.
-
-**Critical:** Kubernetes rollback does not undo a database migration. Use expand/contract migrations and do not claim zero downtime for a destructive migration without an explicit compatibility plan.
-
-## Submission integrity
-
-Clearly label unimplemented work and unexecuted tests. Do not present synthetic harness results as evidence for the actual application or claim that AWS infrastructure has been deployed.
+1. Add `tenants/<name>.yaml` (tier, cloud, region, residency, ring, CIDR, sizing).
+2. `python3 scripts/tenant.py render` and commit the generated `infra/live/<name>` and `platform/tenants/<name>`.
+3. Open a PR: CI rejects residency/region mismatches, overlapping CIDRs, undersized stacks or stale renders.
+4. After review and merge, apply `infra/live/<name>` and let GitOps sync the overlay; the tenant joins its ring.

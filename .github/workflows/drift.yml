@@ -1,0 +1,64 @@
+# Scheduled drift detection: `terraform plan -detailed-exitcode` against every
+# stack's real state with a read-only OIDC role (infra/bootstrap). Exit code 2
+# (changes present) opens an issue. NOT EXECUTED in this assessment: it is
+# skipped until the repository variable AWS_DRIFT_ROLE_ARN is set.
+name: drift-detection
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  issues: write
+
+jobs:
+  stacks:
+    runs-on: ubuntu-latest
+    outputs:
+      names: ${{ steps.list.outputs.names }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        run: echo "names=$(ls infra/live | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+
+  plan:
+    needs: stacks
+    if: vars.AWS_DRIFT_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJSON(needs.stacks.outputs.names) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DRIFT_ROLE_ARN }}
+          aws-region: eu-central-1
+      - name: Plan against real state (read-only, no lock)
+        id: plan
+        run: |
+          cd infra/providers/aws
+          terraform init -input=false -backend-config=../../live/${{ matrix.stack }}/backend.hcl
+          set +e
+          terraform plan -input=false -lock=false -detailed-exitcode -no-color \
+            -var-file=../../live/${{ matrix.stack }}/terraform.tfvars > plan.txt
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          tail -40 plan.txt
+          [ "$code" -ne 1 ]   # 1 = plan error -> fail the job
+      - name: Open an issue on drift
+        if: steps.plan.outputs.code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --title "Drift detected in ${{ matrix.stack }}" \
+            --body "Scheduled plan found changes. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.7.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.7",
-  "serialNumber": "urn:uuid:2f062241-aef3-4f4b-a053-648c42a20cd9",
+  "serialNumber": "urn:uuid:8e6beda9-575b-40e3-8482-68179a0052a9",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-16T14:00:04+00:00",
+    "timestamp": "2026-10-16T14:18:01+00:00",
     "tools": {
       "components": [
         {
@@ -20,10 +20,10 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:oci/continuity-harness@sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "bom-ref": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "type": "container",
       "name": "continuity-harness:hardened",
-      "purl": "pkg:oci/continuity-harness@sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "purl": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -39,19 +39,23 @@
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:7b53acdb5883b5d9f86e921e04828610a1e4083e57873499a9d1c9c04e6f24d0"
+          "value": "sha256:9989fcae966c17ec3b94db91e9ea6331b22a5b45ff50f2363289c3ebf45c92f2"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:7b860d7dc04fb6c13f7e57d4fd92497607e86ac898732bdd167f9c0727ca81f5"
+          "value": "sha256:a3b27dd824342acd1089d1101bdb9a36f5665e24faa57eaefd96237700eab13f"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:8c229ac8b398f7484b7be68fdaf5d9b57ea6c55e91224b6a0e240c72169205b8"
+          "value": "sha256:a84191431028579ce588f193285a193482002f99e0c989a752bc34880ea1b030"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
-          "value": "sha256:a9cf0ecff3bc356ef88d7735a142b85489d63f2802a0058ca0699663ebe0456c"
+          "value": "sha256:bbc2c2afe0de1ea119c4d80d753a87384b1ee1e10212d669d35b2372d07937ed"
+        },
+        {
+          "name": "aquasecurity:trivy:DiffID",
+          "value": "sha256:dce936a13fe360b6d220521802fcd107e55ee87d015f1c6a4c6fb3b1a9266b1c"
         },
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -59,7 +63,7 @@
         },
         {
           "name": "aquasecurity:trivy:ImageID",
-          "value": "sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2"
+          "value": "sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301"
         },
         {
           "name": "aquasecurity:trivy:Reference",
@@ -67,11 +71,15 @@
         },
         {
           "name": "aquasecurity:trivy:RepoDigest",
-          "value": "continuity-harness@sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2"
+          "value": "continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
           "value": "continuity-harness:hardened"
+        },
+        {
+          "name": "aquasecurity:trivy:RepoTag",
+          "value": "continuity-harness:local"
         },
         {
           "name": "aquasecurity:trivy:SchemaVersion",
@@ -79,14 +87,14 @@
         },
         {
           "name": "aquasecurity:trivy:Size",
-          "value": "55285760"
+          "value": "57833472"
         }
       ]
     }
   },
   "components": [
     {
-      "bom-ref": "21730088-caf7-498f-8927-91f583683e3f",
+      "bom-ref": "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
       "type": "operating-system",
       "name": "alpine",
       "version": "3.24.2",
@@ -1402,11 +1410,11 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
-          "value": "sha256:8c229ac8b398f7484b7be68fdaf5d9b57ea6c55e91224b6a0e240c72169205b8"
+          "value": "sha256:9989fcae966c17ec3b94db91e9ea6331b22a5b45ff50f2363289c3ebf45c92f2"
         },
         {
           "name": "aquasecurity:trivy:LayerDigest",
-          "value": "sha256:245c48bbe1ed2832cd6717eef32dfac60bc32a92bdeef6c304e85fcbdd8c06d7"
+          "value": "sha256:8b4a6c025bd7cbb82a33bea8917d9f3d0a54a404c5f8e9380ac9acf33c854226"
         },
         {
           "name": "aquasecurity:trivy:PkgID",
@@ -1515,11 +1523,11 @@
       "properties": [
         {
           "name": "aquasecurity:trivy:LayerDiffID",
-          "value": "sha256:8c229ac8b398f7484b7be68fdaf5d9b57ea6c55e91224b6a0e240c72169205b8"
+          "value": "sha256:9989fcae966c17ec3b94db91e9ea6331b22a5b45ff50f2363289c3ebf45c92f2"
         },
         {
           "name": "aquasecurity:trivy:LayerDigest",
-          "value": "sha256:245c48bbe1ed2832cd6717eef32dfac60bc32a92bdeef6c304e85fcbdd8c06d7"
+          "value": "sha256:8b4a6c025bd7cbb82a33bea8917d9f3d0a54a404c5f8e9380ac9acf33c854226"
         },
         {
           "name": "aquasecurity:trivy:PkgID",
@@ -1538,11 +1546,49 @@
           "value": "1.3.2-r1"
         }
       ]
+    },
+    {
+      "bom-ref": "pkg:pypi/redis@5.2.1",
+      "type": "library",
+      "name": "redis",
+      "version": "5.2.1",
+      "hashes": [
+        {
+          "alg": "SHA-1",
+          "content": "27194d5ec4e7a9cda79f44d14513c056aff7d483"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/redis@5.2.1",
+      "properties": [
+        {
+          "name": "aquasecurity:trivy:FilePath",
+          "value": "app/deps/redis-5.2.1.dist-info/METADATA"
+        },
+        {
+          "name": "aquasecurity:trivy:LayerDiffID",
+          "value": "sha256:bbc2c2afe0de1ea119c4d80d753a87384b1ee1e10212d669d35b2372d07937ed"
+        },
+        {
+          "name": "aquasecurity:trivy:LayerDigest",
+          "value": "sha256:85c0cb434d31a7065606de98ff792f0e88420e5a80d2461c35e3fd05e615c43c"
+        },
+        {
+          "name": "aquasecurity:trivy:PkgType",
+          "value": "python-pkg"
+        }
+      ]
     }
   ],
   "dependencies": [
     {
-      "ref": "21730088-caf7-498f-8927-91f583683e3f",
+      "ref": "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
       "dependsOn": [
         "pkg:apk/alpine/.python-rundeps@20261001.214140?arch=noarch&distro=3.24.2",
         "pkg:apk/alpine/alpine-baselayout@3.7.2-r1?arch=x86_64&distro=3.24.2",
@@ -1747,10 +1793,15 @@
       ]
     },
     {
-      "ref": "pkg:oci/continuity-harness@sha256:12963db47cd08221ac9fb7be20df83fb50255dd8eb532d989db0ae76718cf7f2?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
+      "ref": "pkg:oci/continuity-harness@sha256:b92c5888025ee8c63aa47108cc13847159594a0af5bf4df40e8e85628cda4301?arch=amd64&repository_url=index.docker.io%2Flibrary%2Fcontinuity-harness",
       "dependsOn": [
-        "21730088-caf7-498f-8927-91f583683e3f"
+        "4ac43ba3-a635-4436-8cbd-f0574f5d4586",
+        "pkg:pypi/redis@5.2.1"
       ]
+    },
+    {
+      "ref": "pkg:pypi/redis@5.2.1",
+      "dependsOn": []
     }
   ],
   "vulnerabilities": []

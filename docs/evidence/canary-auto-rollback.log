@@ -1,0 +1,34 @@
+== 15:14:15 setup: commit d2754e8, image sha256:04ab222f84d75832ca9ac5264bd020ab3fec80b727d35be3699ae57db722c28d
+   stable release: synthetic-v3; bad release: synthetic-v3-bad with FAIL_RATE=0.3
+   gate: canary 5xx ratio <= 1% (failureLimit 1) and canary p95 < 400 ms, every 15s
+k6 job k6-canary-bad started (profile=steady)
+-- 15:14:45 releasing synthetic-v3-bad
+time     phase        step    pods analysis          rps  err_rps   p95_ms versions
+15:14:46 Progressing     0       4 Failed            300    0.000    9.750 synthetic-v3=4
+15:14:53 Paused          1       4 Running           295    0.000    9.750 synthetic-v3=4,synthetic-v3-bad=1
+15:15:00 Paused          1       4 Running           297    9.472    9.750 synthetic-v3=4,synthetic-v3-bad=1
+15:15:06 Paused          1       4 Running           300       15    9.750 synthetic-v3=4,synthetic-v3-bad=1
+15:15:13 Paused          1       4 Running           294       21    9.750 synthetic-v3=3,synthetic-v3-bad=1
+15:15:20 Paused          1       4 Running           301       29    9.750 synthetic-v3=3,synthetic-v3-bad=1
+15:15:26 Degraded        0       4 Failed            303       28    9.750 synthetic-v3=3,synthetic-v3-bad=1
+-- 15:15:27 rollout ABORTED automatically 42s after release
+15:15:38 Degraded        0       4 Failed            302       21    9.750 synthetic-v3=4,synthetic-v3-bad=1
+15:15:49 Degraded        0       4 Failed            300    7.487    9.750 synthetic-v3=4
+15:16:01 Degraded        0       4 Failed            299    0.000    9.750 synthetic-v3=4
+15:16:13 Degraded        0       4 Failed            299    0.000    9.751 synthetic-v3=4
+15:16:24 Degraded        0       4 Failed            298    0.000    9.751 synthetic-v3=4
+15:16:36 Degraded        0       4 Failed            300    0.000    9.750 synthetic-v3=4
+
+== 15:16:37 canary analysis
+   analysisrun synthetic-api-8cd8fd9cf-7: phase=Failed Metric "canary-error-rate" assessed Failed due to failed (2) > failureLimit (1)
+   - canary-p95-latency: phase=Successful successful=2 failed=0 last values=['[0.00975]', '[0.00975]']
+   - canary-error-rate: phase=Failed successful=0 failed=2 last values=['[0.2690288713910761]', '[0.27725118483412325]']
+   rollout message: RolloutAborted: Rollout aborted update to revision 7: Metric "canary-error-rate" assessed Failed due to failed (2) > failureLimit (1)
+
+-- 15:16:37 reverting the release spec to synthetic-v3 (what the GitOps revert commit does)
+15:16:53 Healthy         6       4 Failed            300    0.000    9.750 synthetic-v3=4
+
+== 15:18:21 k6 summary over the whole window (errors come only from the canary before abort;
+   k6 thresholds fail here by design: they are the client-side view of the bad release)
+{"profile":"steady","requests":72001,"avg_rps":300,"failed_requests":1104,"failed_rate":0.015333120373328148,"p50_ms":5.7,"p95_ms":6.1,"p99_ms":6.9,"max_ms":15.6,"dropped_iterations":0,"thresholds_passed":false}
+== RESULT: PASS — bad release aborted automatically after 42s; stable version kept serving

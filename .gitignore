@@ -12,6 +12,8 @@ crash.*.log
 !.env.example
 *.tfvars
 !*.example.tfvars
+# Rendered per-stack inputs from tenants/*.yaml contain no secrets and must be reviewed.
+!infra/live/**/terraform.tfvars
 secrets/
 kubeconfig*
 

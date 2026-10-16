@@ -1,0 +1,29 @@
+# Default deny, then allow only what the application needs. PostgreSQL and
+# Redis are outside the cluster (RDS/ElastiCache), so egress is by port; their
+# security groups additionally restrict the source to cluster nodes.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny, namespace: continuity}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: api-ingress, namespace: continuity}
+spec:
+  podSelector: {matchLabels: {app: api}}
+  policyTypes: [Ingress]
+  ingress:
+  - ports: [{port: 8080, protocol: TCP}]   # load balancer, probes and Prometheus
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: app-egress, namespace: continuity}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+  - ports: [{port: 53, protocol: UDP}, {port: 53, protocol: TCP}]   # DNS
+  - ports: [{port: 5432, protocol: TCP}]                            # PostgreSQL
+  - ports: [{port: 6379, protocol: TCP}]                            # Redis

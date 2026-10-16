@@ -1,0 +1,76 @@
+# API: HPA on CPU with an aggressive scale-up policy so 15x is reachable in
+# minutes. Worker: KEDA on outstanding jobs (pending + in-flight), not CPU —
+# a worker sleeping on a 60s job uses no CPU but is fully occupied.
+# Scale-down windows are shortened for the kind demo (production: 300s).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: synthetic-api
+  namespace: continuity-demo
+spec:
+  scaleTargetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: synthetic-api
+  minReplicas: 4
+  maxReplicas: 40
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      selectPolicy: Max
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 8
+          periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 30
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: synthetic-worker
+  namespace: continuity-demo
+spec:
+  scaleTargetRef:
+    name: synthetic-worker
+  minReplicaCount: 2
+  maxReplicaCount: 60
+  pollingInterval: 5
+  cooldownPeriod: 60
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+        scaleDown:
+          stabilizationWindowSeconds: 60
+          policies:
+            - type: Percent
+              value: 50
+              periodSeconds: 30
+  triggers:
+    # One worker processes one job at a time, so target = 1 outstanding job
+    # per replica. Prometheus scrapes queue-exporter every 5s.
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus.monitoring.svc:9090
+        query: sum(jobs_outstanding{namespace="continuity-demo"})
+        threshold: "1"

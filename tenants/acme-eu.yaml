@@ -1,0 +1,15 @@
+# Example dedicated EU tenant (illustrative name).
+name: acme-eu
+tier: dedicated
+cloud: aws
+region: eu-west-1
+residency: eu
+ring: 1
+vpc_cidr: 10.60.0.0/16
+sizing:
+  app_nodes_min: 3
+  app_nodes_max: 12
+  api_min: 3
+  api_max: 20
+  workers_max: 100
+  db_instance_class: db.r6g.large

@@ -1,0 +1,15 @@
+# Example dedicated US tenant (illustrative name).
+name: globex-us
+tier: dedicated
+cloud: aws
+region: us-east-1
+residency: us
+ring: 2
+vpc_cidr: 10.70.0.0/16
+sizing:
+  app_nodes_min: 3
+  app_nodes_max: 12
+  api_min: 3
+  api_max: 20
+  workers_max: 100
+  db_instance_class: db.r6g.large

@@ -1,0 +1,16 @@
+== 15:18:35 setup: commit d2754e8
+== 15:18:58 seed 500000 rows
+NOTICE:  table "orders" does not exist, skipping
+NOTICE:  table "tenants" does not exist, skipping
+   before: orders=500000 md5=d4e7857c72b067cec10fda6aeb97572e
+   before: tenants=3 md5=268dd3f3c611e5f8dbaf7d8bb190585d
+== 15:19:12 backup (pg_dump custom format)
+   backup took 1s, size 3.4M, sha256 8d167ccb26405c3c…
+== 15:19:13 disaster: delete the database pod (emptyDir data is destroyed)
+   after disaster: 0 public tables
+== 15:19:18 restore
+   restore took 1s
+   after:  orders=500000 md5=d4e7857c72b067cec10fda6aeb97572e
+   after:  tenants=3 md5=268dd3f3c611e5f8dbaf7d8bb190585d
+== 15:19:19 smoke query: acme-eu=166667 globex-us=166667 shared=166666
+== RESULT: PASS — row counts and content checksums identical after restore

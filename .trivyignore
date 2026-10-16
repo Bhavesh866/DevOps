@@ -1,0 +1,9 @@
+# Accepted findings. Each entry needs a reason and a revisit condition.
+
+# EKS module node security group allows all egress (terraform-aws-modules/eks
+# "egress_all" recommended rule). Nodes must reach ECR, STS, EC2 and S3 APIs via
+# NAT. Pod-level egress is restricted by NetworkPolicies (platform/base).
+# Revisit when VPC endpoints for those services exist (roadmap days 31-60):
+# then restrict node egress to the endpoint prefix lists.
+AWS-0104
+AVD-AWS-0104

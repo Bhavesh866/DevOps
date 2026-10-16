@@ -2,12 +2,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: worker, namespace: continuity}
 spec:
-  replicas: 3
+  # Replica count is owned by the KEDA ScaledObject below.
   strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
   selector: {matchLabels: {app: worker}}
   template:
     metadata: {labels: {app: worker}}
     spec:
+      # Longest job (60s) < WORKER_DRAIN_TIMEOUT_SECONDS (75s) < grace period (90s).
+      # Drain on SIGTERM is an application contract that must be confirmed for the
+      # real worker; the harness implements and tests it (docs/evidence/worker-drain.log).
       terminationGracePeriodSeconds: 90
       securityContext: {runAsNonRoot: true, seccompProfile: {type: RuntimeDefault}}
       containers:
@@ -17,24 +20,46 @@ spec:
         - {name: DATABASE_URL, valueFrom: {secretKeyRef: {name: app-secrets, key: DATABASE_URL}}}
         - {name: REDIS_URL, valueFrom: {secretKeyRef: {name: app-secrets, key: REDIS_URL}}}
         - {name: WORKER_DRAIN_TIMEOUT_SECONDS, value: "75"}
-        # This probe requires app support; replace with a real health contract.
-        readinessProbe: {exec: {command: ["/bin/sh", "-c", "test -f /tmp/worker-ready"]}, periodSeconds: 5, failureThreshold: 3}
+        # No readiness probe: the worker serves no traffic, and the black-box image's
+        # health contract is unknown. Add a liveness probe once one is documented.
         resources: {requests: {cpu: 250m, memory: 256Mi}, limits: {cpu: "2", memory: 1Gi}}
         securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: ["ALL"]}}
+        volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {sizeLimit: 64Mi}}]
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata: {name: worker, namespace: continuity}
-spec: {minAvailable: 2, selector: {matchLabels: {app: worker}}}
+spec: {maxUnavailable: 10%, selector: {matchLabels: {app: worker}}}
 ---
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+# Queue-depth scaling. ASSUMPTION: the application's pending-job list key is
+# "jobs" (to confirm from the app contract). With only the pending list visible,
+# scale-in can start while jobs are still in flight; that is safe because of the
+# drain contract. If the app exposes an in-flight count, scale on pending +
+# in-flight as the harness does (tests/harness/k8s/autoscaling.yaml).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata: {name: worker, namespace: continuity}
 spec:
-  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: worker}
-  minReplicas: 3
-  maxReplicas: 200
-  metrics:
-  - type: Resource
-    resource: {name: cpu, target: {type: Utilization, averageUtilization: 70}}
-# Add KEDA/external metrics for queue depth and oldest-message age; CPU is fallback only.
+  scaleTargetRef: {name: worker}
+  minReplicaCount: 3
+  maxReplicaCount: 400
+  pollingInterval: 10
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp: {stabilizationWindowSeconds: 0, policies: [{type: Percent, value: 100, periodSeconds: 15}]}
+        scaleDown: {stabilizationWindowSeconds: 300, policies: [{type: Percent, value: 20, periodSeconds: 60}]}
+  triggers:
+  - type: redis
+    metadata: {listName: jobs, listLength: "2", enableTLS: "true"}
+    authenticationRef: {name: redis-auth}
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata: {name: redis-auth, namespace: continuity}
+spec:
+  secretTargetRef:
+  - {parameter: address, name: app-secrets, key: REDIS_ADDRESS}
+  - {parameter: password, name: app-secrets, key: REDIS_PASSWORD}

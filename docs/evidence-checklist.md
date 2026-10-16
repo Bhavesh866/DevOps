@@ -1,29 +1,26 @@
 # Evidence checklist
 
-Only record evidence from real runs with timestamp, commit, environment, command and raw output; redact secrets.
-"Synthetic" means the test ran against `tests/harness`, not the assignment application.
+"kind" = local cluster with the synthetic stand-in app. Details and limits per item:
+`docs/evidence/README.md`.
 
-## Done
+## Required by the assignment
 
-- [x] Terraform `fmt -check` / `init -backend=false` / `validate` — local and CI. No `plan`/`apply` run.
-- [x] Kubernetes manifest render + client-side dry run (`scripts/validate-manifests.sh`) — local and CI.
-- [x] CI image vulnerability gate (Trivy HIGH/CRITICAL) and config scan — GitHub Actions run on `40866de`.
-- [x] Image SBOM and all-severity scan tied to one image ID — `docs/evidence/final/` (synthetic image).
-- [x] Synthetic deploy/readiness, rolling update and rollback on kind — `docs/local-test-evidence.md` (no raw logs retained; pre-remediation image).
+- [x] Deploy under load with no errors — kind: `canary-under-load.log` (90,001 requests, 0 failed)
+- [x] Automatic rollback of a bad release — kind: `canary-auto-rollback.log` (aborted after 42 s)
+- [x] 15x load test — kind: `autoscale-15x.log` (2,250 req/s held 5 min, 0 failed, scale up and back)
+- [x] Restore test — kind: `restore-test.log` (checksums identical)
 
-## Not done
+## Additional
 
-- [ ] Image signature and SBOM attestation verified; same digest promoted across environments.
-- [ ] Deployment/readiness with the real application image.
-- [ ] 150 req/s baseline: p95, errors, resource and DB metrics.
-- [ ] 2,250 req/s: scale-up under five minutes.
-- [ ] Bad canary triggers automatic rollback.
-- [ ] Worker drain with 60-second in-flight job; no dropped job.
-- [ ] Migration compatibility and application rollback.
-- [ ] Database restore with consistency/smoke checks.
-- [ ] Tenant ring halts on failure.
-- [ ] EU policy covers data, backups, logs and snapshots.
-- [ ] Actual pricing calculator export.
-
-The assignment asks for evidence of deployment under load, rollback, 15x load and restore.
-None of those is complete for the real application; items above are updated as work lands.
+- [x] Worker drain and orphan recovery, no lost jobs — `worker-drain.log`
+- [x] Expand/contract migration with app rollback — `migration-expand-contract.log`
+- [x] Image scan (all severities) and SBOM tied to one image ID — `docs/evidence/final/`
+- [x] Terraform fmt/validate (AWS, GCP, bootstrap), manifest render, tenant policy, promtool, Trivy config — local; CI on push
+- [x] SLO rules loaded and healthy in a running Prometheus — kind
+- [ ] CI push → sign → verify → promote by digest — written; runs on the next push
+- [ ] Ring rollout halts on failure — written; run `ci` via workflow_dispatch with `fail_ring=1` to demonstrate
+- [ ] Any cloud deployment (AWS/GCP plan or apply)
+- [ ] Real application image: capacity, p95, drain, migrations
+- [ ] RDS PITR restore, Redis failover, regional failover game day
+- [ ] Tenant onboarding timed end to end
+- [ ] Pricing calculator export
